@@ -109,7 +109,7 @@
     const particles = new THREE.Points(geometry, material);
     scene.add(particles);
 
-    const shapes = ['sphere', 'heart', 'saturn', 'flower', 'torus'];
+    const shapes = ['sphere', 'heart', 'saturn', 'flower', 'torus', 'cat'];
     let currentShapeIndex = 0;
 
     function getPointOnSphere(i) {
@@ -185,22 +185,54 @@
         };
     }
 
-    function setTargetShape(shapeName) {
-        const colorAttr = particles.geometry.attributes.color;
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            let p;
-            if(shapeName === 'sphere') p = getPointOnSphere(i);
-            else if(shapeName === 'heart') p = getPointOnHeart(i);
-            else if(shapeName === 'saturn') p = getPointOnSaturn(i);
-            else if(shapeName === 'flower') p = getPointOnFlower(i);
-            else p = getPointOnTorus(i);
+    function getPointOnCat(i) {
+    const ratio = i / PARTICLE_COUNT;
+    let x, y, z;
 
-            targetPositions[i * 3] = p.x;
-            targetPositions[i * 3 + 1] = p.y;
-            targetPositions[i * 3 + 2] = p.z;
-            colorAttr.setXYZ(i, p.r, p.g, p.b);
-        }
-        colorAttr.needsUpdate = true;
+    if (ratio < 0.6) { // Body (Cylinder)
+        const a = Math.random() * Math.PI * 2;
+        const r = 4 + Math.random() * 2; // Fluff thickness
+        x = (ratio * 20) - 10;
+        y = Math.cos(a) * r - 2;
+        z = Math.sin(a) * r;
+    } else if (ratio < 0.8) { // Head (Sphere)
+        const phi = Math.acos(-1 + (Math.random() * 2));
+        const theta = Math.random() * Math.PI * 2;
+        const r = 4;
+        x = r * Math.sin(phi) * Math.cos(theta) + 12;
+        y = r * Math.sin(phi) * Math.sin(theta) + 2;
+        z = r * Math.cos(phi);
+    } else { // Tail (Wavy line)
+        const t = (ratio - 0.8) * 40;
+        x = -12 - t;
+        y = Math.sin(t * 0.5) * 2 - 2;
+        z = Math.cos(t * 0.5) * 2;
+    }
+
+    return {
+        x: x, y: y, z: z,
+        r: 0.9, g: 0.7, b: 1.0 // Light Lavender-Purple
+    };
+}
+
+    function setTargetShape(shapeName) {
+    const colorAttr = particles.geometry.attributes.color;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        let p;
+        if(shapeName === 'sphere') p = getPointOnSphere(i);
+        else if(shapeName === 'heart') p = getPointOnHeart(i);
+        else if(shapeName === 'saturn') p = getPointOnSaturn(i);
+        else if(shapeName === 'flower') p = getPointOnFlower(i);
+        else if(shapeName === 'torus') p = getPointOnTorus(i);
+        else if(shapeName === 'cat') p = getPointOnCat(i);
+
+        targetPositions[i * 3] = p.x;
+        targetPositions[i * 3 + 1] = p.y;
+        targetPositions[i * 3 + 2] = p.z;
+        colorAttr.setXYZ(i, p.r, p.g, p.b);
+    }
+    colorAttr.needsUpdate = true;
+}
     }
 
     setTargetShape(shapes[0]);
