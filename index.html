@@ -2,128 +2,78 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Lilac Cosmos</title>
+    <title>Lilac Cosmos - Hand Controlled</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #020205; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        .ui { position: absolute; top: 30px; left: 30px; color: #d1b3ff; z-index: 10; pointer-events: none; text-shadow: 0 0 10px rgba(138, 43, 226, 0.5); }
-        #webcam { transform: scaleX(-1); position: absolute; bottom: 20px; right: 20px; width: 180px; border: 1px solid #4b0082; border-radius: 12px; opacity: 0.7; }
-        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #020205; display: flex; justify-content: center; align-items: center; color: white; z-index: 100; }
+        body { margin: 0; overflow: hidden; background: #020108; font-family: sans-serif; }
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #020108; color: #d1b3ff; display: flex; justify-content: center; align-items: center; z-index: 100; font-size: 1.5rem; }
+        .ui { position: absolute; top: 20px; left: 20px; color: #d1b3ff; pointer-events: none; z-index: 10; }
+        #webcam { transform: scaleX(-1); position: absolute; bottom: 10px; right: 10px; width: 150px; border-radius: 10px; opacity: 0.5; border: 1px solid #4b0082; }
     </style>
 </head>
 <body>
-    <div id="loading">Initializing Magical Cosmos...</div>
-    <div class="ui">
-        <h1>Lilac Cosmos</h1>
-        <p>Move your hand to rotate the flower and stars.</p>
-    </div>
+    <div id="loading">✨ Creating your Lilac Cosmos...</div>
+    <div class="ui"><h1>Lilac Cosmos</h1><p>Move your hand to rotate the scene.</p></div>
     <video id="webcam" autoplay playsinline></video>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
-        import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
-        import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
 
-        // --- SCENE SETUP ---
+        // --- 1. Scene Setup ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        const mainGroup = new THREE.Group();
-        scene.add(mainGroup);
+        const worldGroup = new THREE.Group();
+        scene.add(worldGroup);
 
-        // --- PARTICLE GENERATION ---
-        function createParticles(count, color, size, area, isLilac = false) {
-            const geometry = new THREE.BufferGeometry();
+        // --- 2. Create Elements ---
+        function createLilac() {
+            const count = 10000;
+            const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(count * 3);
-            
-            for (let i = 0; i < count; i++) {
-                let x, y, z;
-                if (isLilac) {
-                    // Create a conical/cluster shape for the Lilac
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = Math.random() * (0.5 + (i/count)); 
-                    x = Math.cos(angle) * radius;
-                    y = (i / count) * 4 - 2; 
-                    z = Math.sin(angle) * radius;
-                } else {
-                    // Spread stars/clouds in a sphere
-                    x = (Math.random() - 0.5) * area;
-                    y = (Math.random() - 0.5) * area;
-                    z = (Math.random() - 0.5) * area;
-                }
-                pos.set([x, y, z], i * 3);
+            for(let i=0; i<count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * (0.5 + (i/count));
+                pos.set([Math.cos(angle)*r, (i/count)*4 - 2, Math.sin(angle)*r], i*3);
             }
-            
-            geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            const material = new THREE.PointsMaterial({ 
-                color: color, 
-                size: size, 
-                transparent: true, 
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending 
-            });
-            return new THREE.Points(geometry, material);
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x9370DB, size: 0.02, transparent: true, blending: THREE.AdditiveBlending }));
         }
 
-        const lilac = createParticles(8000, 0x9370DB, 0.02, 0, true);
-        const clouds = createParticles(2000, 0x4B0082, 0.15, 8);
-        const stars = createParticles(5000, 0xFFD700, 0.015, 25);
-        
-        mainGroup.add(lilac);
-        mainGroup.add(clouds);
-        scene.add(stars); // Stars don't rotate with the hand for depth
-
-        camera.position.z = 8;
-
-        // --- HAND TRACKING & ROTATION ---
-        let targetRotationX = 0;
-        let targetRotationY = 0;
-
-        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
-        
-        hands.onResults((results) => {
-            document.getElementById('loading').style.display = 'none';
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmark = results.multiHandLandmarks[0][8]; // Index finger tip
-                targetRotationY = (landmark.x - 0.5) * 4;
-                targetRotationX = (landmark.y - 0.5) * 4;
+        function createClouds() {
+            const count = 1500;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            for(let i=0; i<count; i++) {
+                pos.set([(Math.random()-0.5)*10, 2 + (Math.random()-0.5)*2, (Math.random()-0.5)*5], i*3);
             }
-        });
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x4B0082, size: 0.12, transparent: true, opacity: 0.4 }));
+        }
 
+        function createStars() {
+            const count = 5000;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            for(let i=0; i<count; i++) {
+                pos.set([(Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*30], i*3);
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xFFD700, size: 0.015 }));
+        }
+
+        const lilac = createLilac();
+        const clouds = createClouds();
+        const stars = createStars();
+        worldGroup.add(lilac, clouds);
+        scene.add(stars); 
+
+        camera.position.z = 7;
+
+        // --- 3. Hand Tracking (Using global window objects) ---
+        let targetX = 0, targetY = 0;
         const videoElement = document.getElementById('webcam');
-        const mpCamera = new Camera(videoElement, {
-            onFrame: async () => { await hands.send({ image: videoElement }); },
-            width: 640, height: 480
-        });
-        mpCamera.start();
-
-        // --- ANIMATION LOOP ---
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Smooth Rotation (Lerp)
-            mainGroup.rotation.y += (targetRotationY - mainGroup.rotation.y) * 0.05;
-            mainGroup.rotation.x += (targetRotationX - mainGroup.rotation.x) * 0.05;
-
-            // Subtle drift for stars
-            stars.rotation.y += 0.0005;
-            clouds.rotation.z += 0.001;
-
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
-</body>
-</html>
