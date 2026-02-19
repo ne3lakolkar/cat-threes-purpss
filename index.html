@@ -2,78 +2,115 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Lilac Cosmos - Hand Controlled</title>
+    <title>Interactive Lilac Cosmos</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #020108; font-family: sans-serif; }
-        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #020108; color: #d1b3ff; display: flex; justify-content: center; align-items: center; z-index: 100; font-size: 1.5rem; }
-        .ui { position: absolute; top: 20px; left: 20px; color: #d1b3ff; pointer-events: none; z-index: 10; }
-        #webcam { transform: scaleX(-1); position: absolute; bottom: 10px; right: 10px; width: 150px; border-radius: 10px; opacity: 0.5; border: 1px solid #4b0082; }
+        body { margin: 0; overflow: hidden; background: #010105; font-family: 'Segoe UI', sans-serif; }
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #010105; 
+                   color: #b19cd9; display: flex; justify-content: center; align-items: center; z-index: 1000; font-size: 1.2rem; }
+        .ui { position: absolute; top: 20px; left: 20px; color: #b19cd9; pointer-events: none; z-index: 10; text-shadow: 0 0 10px rgba(138,43,226,0.6); }
+        #webcam { transform: scaleX(-1); position: absolute; bottom: 10px; right: 10px; width: 140px; border-radius: 8px; opacity: 0.4; border: 1px solid #4b0082; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="loading">✨ Creating your Lilac Cosmos...</div>
-    <div class="ui"><h1>Lilac Cosmos</h1><p>Move your hand to rotate the scene.</p></div>
+    <div id="loading">🔮 Initializing Cosmos... Please allow camera access.</div>
+    <div class="ui">
+        <h1>Lilac Cosmos</h1>
+        <p>Move your hand to rotate the universe.</p>
+    </div>
     <video id="webcam" autoplay playsinline></video>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        // --- 1. Scene Setup ---
+        // --- 1. CONFIG & SCENE ---
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
         const worldGroup = new THREE.Group();
         scene.add(worldGroup);
 
-        // --- 2. Create Elements ---
-        function createLilac() {
-            const count = 10000;
+        // --- 2. GENERATE LILAC, CLOUDS, & STARS ---
+        function createParticles(count, color, size, distribution) {
             const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(count * 3);
             for(let i=0; i<count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const r = Math.random() * (0.5 + (i/count));
-                pos.set([Math.cos(angle)*r, (i/count)*4 - 2, Math.sin(angle)*r], i*3);
+                if(distribution === 'lilac') {
+                    // Vertical cone cluster for lilac shape
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = Math.random() * (0.5 + (i/count));
+                    pos.set([Math.cos(angle)*r, (i/count)*5 - 2.5, Math.sin(angle)*r], i*3);
+                } else {
+                    // Spherical field for stars/clouds
+                    const r = (Math.random() - 0.5) * size * 2;
+                    pos.set((Math.random()-0.5)*size, (Math.random()-0.5)*size, (Math.random()-0.5)*size, i*3);
+                }
             }
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x9370DB, size: 0.02, transparent: true, blending: THREE.AdditiveBlending }));
+            return new THREE.Points(geo, new THREE.PointsMaterial({ color, size: 0.02, transparent: true, blending: THREE.AdditiveBlending }));
         }
 
-        function createClouds() {
-            const count = 1500;
-            const geo = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            for(let i=0; i<count; i++) {
-                pos.set([(Math.random()-0.5)*10, 2 + (Math.random()-0.5)*2, (Math.random()-0.5)*5], i*3);
-            }
-            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x4B0082, size: 0.12, transparent: true, opacity: 0.4 }));
-        }
+        const lilac = createParticles(12000, 0x9370DB, 0, 'lilac');
+        const stars = createParticles(6000, 0xFFD700, 40, 'sphere');
+        const clouds = createParticles(2000, 0x4B0082, 10, 'sphere');
+        
+        worldGroup.add(lilac);
+        worldGroup.add(clouds);
+        scene.add(stars); // Stars remain static for parallax
 
-        function createStars() {
-            const count = 5000;
-            const geo = new THREE.BufferGeometry();
-            const pos = new Float32Array(count * 3);
-            for(let i=0; i<count; i++) {
-                pos.set([(Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*30], i*3);
-            }
-            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xFFD700, size: 0.015 }));
-        }
+        camera.position.z = 8;
 
-        const lilac = createLilac();
-        const clouds = createClouds();
-        const stars = createStars();
-        worldGroup.add(lilac, clouds);
-        scene.add(stars); 
-
-        camera.position.z = 7;
-
-        // --- 3. Hand Tracking (Using global window objects) ---
+        // --- 3. AUTO-START CAMERA & HAND TRACKING ---
         let targetX = 0, targetY = 0;
         const videoElement = document.getElementById('webcam');
+
+        const hands = new window.Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
+
+        hands.onResults((results) => {
+            document.getElementById('loading').style.display = 'none';
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                // Tracking Index Finger (Landmark 8) like Zeeshan's repo
+                const point = results.multiHandLandmarks[0][8];
+                targetY = (point.x - 0.5) * 4;
+                targetX = (point.y - 0.5) * 4;
+            }
+        });
+
+        // The logic that automatically opens the camera
+        const mpCamera = new window.Camera(videoElement, {
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 640, height: 480
+        });
+        mpCamera.start();
+
+        // --- 4. ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            // Smooth Rotation (Lerping)
+            worldGroup.rotation.y += (targetY - worldGroup.rotation.y) * 0.05;
+            worldGroup.rotation.x += (targetX - worldGroup.rotation.x) * 0.05;
+            
+            // Subtle ambient motion
+            stars.rotation.y += 0.0002;
+            lilac.rotation.y += 0.001;
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
