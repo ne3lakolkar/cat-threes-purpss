@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet the Particle Cat</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; font-family: sans-serif; }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; }
+        .ui { position: absolute; top: 20px; left: 20px; color: white; z-index: 10; pointer-events: none; }
+        #webcam { transform: scaleX(-1); position: absolute; bottom: 10px; right: 10px; width: 200px; border: 2px solid #444; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <h1>Particle Cat</h1>
+        <p>Allow camera access and move your hand to pet the fluff.</p>
+    </div>
+    
+    <video id="webcam" autoplay playsinline></video>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+        import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
+        import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
+
+        // --- 1. THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.z = 5;
+
+        // --- 2. THE PARTICLE CAT (FLUFF) ---
+        const particleCount = 15000;
+        const positions = new Float32Array(particleCount * 3);
+        const originals = new Float32Array(particleCount * 3);
+        const velocities = new Float32Array(particleCount * 3);
+
+        for (let i = 0; i < particleCount; i++) {
+            // Create a spherical shape for the "cat head"
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            const r = 1.5 + Math.random() * 0.2; // radius
+
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+
+            positions[i * 3] = originals[i * 3] = x;
+            positions[i * 3 + 1] = originals[i * 3 + 1] = y;
+            positions[i * 3 + 2] = originals[i * 3 + 2] = z;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const material = new THREE.PointsMaterial({ 
+            color: 0xffffff, 
+            size: 0.015, 
+            transparent: true, 
+            opacity: 0.8 
+        });
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // Hand Cursor (Invisible interaction point)
+        const handPoint = new THREE.Vector3(100, 100, 100);
+
+        // --- 3. MEDIAPIPE HAND TRACKING ---
+        const videoElement = document.getElementById('webcam');
+        
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const hand = results.multiHandLandmarks[0];
+                // Index finger tip is landmark 8
+                const indexTip = hand[8];
+                
+                // Map normalized 0-1 coordinates to Three.js space (-5 to 5 approx)
+                handPoint.x = (indexTip.x - 0.5) * -10; // Inverted for mirroring
+                handPoint.y = (indexTip.y - 0.5) * -10;
+                handPoint.z = (indexTip.z) * -5;
+            } else {
+                handPoint.set(100, 100, 100); // Move away if no hand detected
+            }
+        }
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        const mpCamera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480
+        });
+        mpCamera.start();
+
+        // --- 4. ANIMATION & INTERACTION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const posAttr = geometry.attributes.position;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+
+                // 1. Get current and original position
+                let px = posAttr.array[ix];
+                let py = posAttr.array[iy];
+                let pz = posAttr.array[iz];
+
+                const ox = originals[ix];
+                const oy = originals[iy];
+                const oz = originals[iz];
+
+                // 2. Physics: Push away from hand
+                const dx = px - handPoint.x;
+                const dy = py - handPoint.y;
+                const dz = pz - handPoint.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                if (dist < 1.0) {
+                    const force = (1.0 - dist) * 0.2;
+                    velocities[ix] += (dx / dist) * force;
+                    velocities[iy] += (dy / dist) * force;
+                    velocities[iz] += (dz / dist) * force;
+                }
+
+                // 3. Return to original position (Spring)
+                velocities[ix] += (ox - px) * 0.03;
+                velocities[iy] += (oy - py) * 0.03;
+                velocities[iz] += (oz - pz) * 0.03;
+
+                // 4. Apply velocity & friction
+                velocities[ix] *= 0.9;
+                velocities[iy] *= 0.9;
+                velocities[iz] *= 0.9;
+
+                posAttr.array[ix] += velocities[ix];
+                posAttr.array[iy] += velocities[iy];
+                posAttr.array[iz] += velocities[iz];
+            }
+
+            posAttr.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
