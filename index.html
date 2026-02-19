@@ -185,33 +185,64 @@
         };
     }
 
-    function getPointOnCat(i) {
-    const ratio = i / PARTICLE_COUNT;
-    let x, y, z;
+    const catVertices = [
+    new THREE.Vector3(9, 4, 0),   // 0: Nose
+    new THREE.Vector3(7, 6, 0),   // 1: Forehead
+    new THREE.Vector3(5, 4, 0),   // 2: Neck
+    new THREE.Vector3(6, 1, 0),   // 3: Chest
+    new THREE.Vector3(8, 2, 0),   // 4: Jaw
+    new THREE.Vector3(6, 7, 0),   // 5: Ear Tip (L)
+    new THREE.Vector3(8, 7, 0),   // 6: Ear Tip (R)
+    new THREE.Vector3(2, 5, 0),   // 7: Back (Front)
+    new THREE.Vector3(-4, 5, 0),  // 8: Back (Middle)
+    new THREE.Vector3(-8, 4, 0),  // 9: Back (Rear)
+    new THREE.Vector3(-10, 2, 0), // 10: Tail Base
+    new THREE.Vector3(-12, 6, 0), // 11: Tail Curve
+    new THREE.Vector3(-9, 9, 0),  // 12: Tail Tip
+    new THREE.Vector3(3, 0, 0),   // 13: Front Leg Top
+    new THREE.Vector3(2, -4, 0),  // 14: Front Paw
+    new THREE.Vector3(-6, 0, 0),  // 15: Rear Leg Top
+    new THREE.Vector3(-8, -3, 0), // 16: Rear Paw
+    new THREE.Vector3(-2, 1, 0)   // 17: Belly
+];
 
-    if (ratio < 0.6) { // Body (Cylinder)
-        const a = Math.random() * Math.PI * 2;
-        const r = 4 + Math.random() * 2; // Fluff thickness
-        x = (ratio * 20) - 10;
-        y = Math.cos(a) * r - 2;
-        z = Math.sin(a) * r;
-    } else if (ratio < 0.8) { // Head (Sphere)
-        const phi = Math.acos(-1 + (Math.random() * 2));
-        const theta = Math.random() * Math.PI * 2;
-        const r = 4;
-        x = r * Math.sin(phi) * Math.cos(theta) + 12;
-        y = r * Math.sin(phi) * Math.sin(theta) + 2;
-        z = r * Math.cos(phi);
-    } else { // Tail (Wavy line)
-        const t = (ratio - 0.8) * 40;
-        x = -12 - t;
-        y = Math.sin(t * 0.5) * 2 - 2;
-        z = Math.cos(t * 0.5) * 2;
-    }
+const catEdges = [
+    [0, 1], [1, 2], [2, 3], [3, 4], [4, 0], // Head
+    [1, 5], [2, 5], [1, 6], [0, 6],         // Ears
+    [2, 7], [7, 8], [8, 9], [9, 10],        // Back/Top line
+    [3, 17], [17, 9],                       // Belly/Bottom line
+    [10, 11], [11, 12],                     // Tail
+    [3, 13], [13, 14],                      // Front Leg
+    [9, 15], [15, 16]                       // Rear Leg
+];
+
+function getPointOnCat(i) {
+    // Randomly pick an edge to place the particle on
+    const edgeIndex = Math.floor(Math.random() * catEdges.length);
+    const [startIndex, endIndex] = catEdges[edgeIndex];
+    const start = catVertices[startIndex];
+    const end = catVertices[endIndex];
+
+    // Linear interpolation between the two vertices of the edge
+    const t = Math.random();
+    const x = start.x + (end.x - start.x) * t;
+    const y = start.y + (end.y - start.y) * t;
+    const z = start.z + (end.z - start.z) * t;
+    
+    // Add small random jitter to give the wireframe some "fluff" and volume
+    const jitter = (Math.random() - 0.5) * 0.4;
+    const depth = (Math.random() - 0.5) * 2.5;
+
+    // Use light orange/white colors for the particles
+    const isOrange = Math.random() > 0.4;
 
     return {
-        x: x, y: y, z: z,
-        r: 0.9, g: 0.7, b: 1.0 // Light Lavender-Purple
+        x: x + jitter,
+        y: y + jitter,
+        z: z + depth,
+        r: isOrange ? 1.0 : 0.95,
+        g: isOrange ? 0.8 : 0.95,
+        b: isOrange ? 0.6 : 1.0
     };
 }
 
