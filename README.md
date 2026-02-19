@@ -1,3 +1,61 @@
+View it here: https://ne3lakolkar.github.io/cat-threes-purpss/
+
+
+
+DON'T READ UNTIL YOU SEE THE WEBSITE
+
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+-
+_
+
+
 The Sphere: A perfect, endless loop representing the "whole world" you have in your hands. Always. 🟣
 
 The Heart: Not much hard to understand there, it’s simply the shape of my heart, get hold of it if you wanna. 💜
