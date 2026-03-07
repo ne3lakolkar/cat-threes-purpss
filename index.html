@@ -10,7 +10,7 @@
         #bg-image {
             position: absolute; width: 100%; height: 100%;
             object-fit: cover; z-index: 1; opacity: 0;
-            transition: opacity 3s ease-in-out; /* Smooth fade-in reveal */
+            transition: opacity 3s ease-in-out;
         }
 
         #darkness {
@@ -19,36 +19,46 @@
             transition: opacity 3s ease-in-out;
         }
 
+        /* Affirmation UI */
         #counter-ui {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; z-index: 10; text-align: center; pointer-events: none;
+            color: white; z-index: 10; text-align: center; pointer-events: none; width: 80%;
         }
-        #nod-text { font-size: 1.5rem; letter-spacing: 3px; opacity: 0.8; }
-        #count-num { font-size: 4rem; font-weight: bold; color: #d8b4fe; display: block; }
+        #reason-text { 
+            font-size: 1.8rem; font-weight: 300; margin-bottom: 20px; 
+            color: #e9d5ff; text-shadow: 0 0 15px rgba(168, 85, 247, 0.8);
+            min-height: 3rem; transition: opacity 0.5s;
+        }
+        #nod-prompt { font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; opacity: 0.6; }
+        #count-display { font-size: 1.2rem; margin-top: 10px; color: #d8b4fe; }
 
         canvas { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
 
+        /* The Cat Button */
         #diary-btn {
             position: absolute; top: 50%; left: 50%; 
             transform: translate(-50%, -50%) scale(0.6);
             cursor: pointer; display: none; z-index: 15;
             background: none; border: none;
         }
-        #diary-btn img { width: 500px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
+        #diary-btn img { width: 550px; filter: drop-shadow(0 0 30px rgba(216, 180, 254, 0.5)); }
 
+        /* Transparent Galaxy Letter */
         #diary-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); display: none; z-index: 20;
+            background: rgba(0,0,0,0.8); display: none; z-index: 20;
             justify-content: center; align-items: center;
         }
-
         .letter-content {
             position: relative; z-index: 22;
-            background: rgba(255, 250, 240, 0.9);
-            padding: 60px; width: 85%; max-width: 600px;
-            border-radius: 4px; color: #2e1065; font-family: 'Georgia', serif; line-height: 2;
-            backdrop-filter: blur(5px);
+            background: rgba(255, 255, 255, 0.08); /* Transparent glass */
+            padding: 60px; width: 85%; max-width: 650px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px; color: #fff; font-family: 'Georgia', serif; line-height: 2;
+            backdrop-filter: blur(8px);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
+        h2 { color: #d8b4fe; margin-top: 0; text-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
@@ -62,8 +72,9 @@
     <div id="darkness"></div>
     
     <div id="counter-ui">
-        <span id="nod-text">Nod 'Yes' to bring the sun...</span>
-        <span id="count-num">0 / 7</span>
+        <div id="reason-text">You are a warrior because you found light when things were heavy.</div>
+        <div id="nod-prompt">Nod 'Yes' to agree</div>
+        <div id="count-display">Affirmation 1 / 7</div>
     </div>
     
     <button id="diary-btn" onclick="showGalaxyLetter()">
@@ -73,10 +84,10 @@
     <div id="diary-overlay">
         <div id="galaxy-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
         <div class="letter-content">
-            <h2 style="margin-top:0; color:#6b21a8;">To my favorite Sunshine Girl,</h2>
+            <h2>To my favorite Sunshine Girl,</h2>
             <p>Today is a reminder of how much light you bring into the world, even on the days you feel a bit tired or heavy. Your strength isn't loud; it's the quiet way you keep moving forward.</p>
             <p>You don't have to be strong every second. Even Hina needed someone to hold her hand. I'm right here, always.</p>
-            <p style="text-align:right; font-weight:bold; font-size: 1.2rem; color:#6b21a8;">— Nits</p>
+            <p style="text-align:right; font-weight:bold; font-size: 1.2rem; color:#d8b4fe;">— Nits</p>
         </div>
     </div>
 </div>
@@ -90,37 +101,43 @@
     let nodDetected = false;
     let lastY = 0;
 
-    // --- THREE.JS GALAXY SETUP ---
+    const reasons = [
+        "You are a warrior because you found light when things were heavy.",
+        "Your resilience is your most beautiful superpower.",
+        "You have the heart of a survivor, capable of facing any storm.",
+        "Your true beauty radiates from within, a light that can never be dimmed.",
+        "In moments of stillness, your silent grace is your strength.",
+        "The quiet courage to keep moving forward is a powerful thing.",
+        "All good things (including you) are wild and free."
+    ];
+
+    // --- GALAXY (Transparent background logic) ---
     const galaxyScene = new THREE.Scene();
     const galaxyCam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const galaxyRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     galaxyRenderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('galaxy-container').appendChild(galaxyRenderer.domElement);
 
-    const particlesCount = 15000;
+    const particlesCount = 18000;
     const posArr = new Float32Array(particlesCount * 3);
     const colArr = new Float32Array(particlesCount * 3);
 
     for(let i=0; i < particlesCount; i++) {
         const angle = i * 0.1;
-        const radius = i * 0.005 + Math.random() * 2;
+        const radius = i * 0.005 + Math.random() * 2.5;
         posArr[i*3] = Math.cos(angle) * radius;
-        posArr[i*3+1] = (Math.random() - 0.5) * 2;
+        posArr[i*3+1] = (Math.random() - 0.5) * 1.5;
         posArr[i*3+2] = Math.sin(angle) * radius;
-        colArr[i*3] = 0.5 + Math.random() * 0.5;
-        colArr[i*3+1] = 0.2;
-        colArr[i*3+2] = 0.8 + Math.random() * 0.2;
+        colArr[i*3] = 0.6; colArr[i*3+1] = 0.3; colArr[i*3+2] = 0.9;
     }
-
     const galaxyGeom = new THREE.BufferGeometry();
     galaxyGeom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
     galaxyGeom.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
-    const galaxyMat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-    const galaxyPoints = new THREE.Points(galaxyGeom, galaxyMat);
+    const galaxyPoints = new THREE.Points(galaxyGeom, new THREE.PointsMaterial({ size: 0.04, vertexColors: true, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }));
     galaxyScene.add(galaxyPoints);
-    galaxyCam.position.z = 15;
+    galaxyCam.position.z = 12;
 
-    // --- FACE TRACKING & NOD DETECTION ---
+    // --- FACE MESH & NODS ---
     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
 
@@ -131,35 +148,39 @@
             headY = (landmarks[1].y - 0.5) * 2;
 
             if (!isClear) {
-                const currentY = landmarks[1].y; // Nose tip
-                const movement = currentY - lastY;
-
-                // Detect Downward Motion for Nod
-                if (movement > 0.015 && !nodDetected) {
+                const currentY = landmarks[1].y; 
+                if (currentY - lastY > 0.015 && !nodDetected) {
                     nodDetected = true;
                     nodCount++;
-                    document.getElementById('count-num').innerText = `${nodCount} / 7`;
-                    
-                    if (nodCount >= 7) {
+                    if (nodCount < 7) {
+                        updateReason();
+                    } else if (nodCount === 7) {
                         triggerReveal();
                     }
-                } else if (movement < -0.01) {
-                    nodDetected = false; // Reset for next nod
+                } else if (currentY - lastY < -0.01) {
+                    nodDetected = false;
                 }
                 lastY = currentY;
             }
         }
     });
 
+    function updateReason() {
+        const textElem = document.getElementById('reason-text');
+        textElem.style.opacity = 0;
+        setTimeout(() => {
+            textElem.innerText = reasons[nodCount];
+            textElem.style.opacity = 1;
+            document.getElementById('count-display').innerText = `Affirmation ${nodCount + 1} / 7`;
+        }, 500);
+    }
+
     function triggerReveal() {
         isClear = true;
-        document.getElementById('counter-ui').style.opacity = 0;
+        document.getElementById('counter-ui').style.display = 'none';
         document.getElementById('darkness').style.opacity = 0;
         document.getElementById('bg-image').style.opacity = 1;
-        
-        setTimeout(() => {
-            document.getElementById('diary-btn').style.display = 'block';
-        }, 3000); // Wait for fade-in to finish
+        setTimeout(() => { document.getElementById('diary-btn').style.display = 'block'; }, 3000);
     }
 
     const camera = new Camera(document.querySelector('.input_video'), {
@@ -168,33 +189,29 @@
     });
     camera.start();
 
-    // --- ANIMATION LOOP ---
     function animate() {
         requestAnimationFrame(animate);
-        galaxyPoints.rotation.y += 0.002;
-        galaxyPoints.rotation.x += (headY * 0.5 - galaxyPoints.rotation.x) * 0.05;
-        galaxyPoints.rotation.z += (headX * 0.5 - galaxyPoints.rotation.z) * 0.05;
+        galaxyPoints.rotation.y += 0.0015;
+        galaxyPoints.rotation.x += (headY * 0.3 - galaxyPoints.rotation.x) * 0.05;
+        galaxyPoints.rotation.z += (headX * 0.3 - galaxyPoints.rotation.z) * 0.05;
         galaxyRenderer.render(galaxyScene, galaxyCam);
     }
     animate();
 
-    function showGalaxyLetter() {
-        document.getElementById('diary-overlay').style.display = 'flex';
-    }
+    function showGalaxyLetter() { document.getElementById('diary-overlay').style.display = 'flex'; }
 
-    // --- P5.JS RAIN ---
     let drops = [];
     function setup() {
         let cnv = createCanvas(windowWidth, windowHeight);
         cnv.parent('wrapper');
-        for(let i=0; i<300; i++) drops.push({x: random(width), y: random(height), s: random(10, 20)});
+        for(let i=0; i<300; i++) drops.push({x: random(width), y: random(height), s: random(10, 25)});
     }
     function draw() {
         clear();
         if (isClear) return;
-        stroke(150, 150, 200, 150);
+        stroke(180, 180, 255, 120);
         for(let d of drops) {
-            line(d.x, d.y, d.x, d.y + 10);
+            line(d.x, d.y, d.x, d.y + 12);
             d.y += d.s; if(d.y > height) d.y = -10;
         }
     }
