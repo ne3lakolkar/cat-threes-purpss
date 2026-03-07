@@ -2,78 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Sunshine Girl Protocol</title>
+    <title>The Sunshine Girl Protocol</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Aptos', sans-serif; }
         #wrapper { position: relative; width: 100vw; height: 100vh; }
         
-        /* The Movie Background */
+        /* The Base Movie Image */
         #bg-image {
             position: absolute; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1;
+            object-fit: cover; z-index: 1; opacity: 0; /* Hidden at start */
         }
 
-        /* The Grey Cloud Overlay */
-        #cloud-overlay {
+        /* The Rain Canvas */
+        canvas { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
+
+        /* Darkness Overlay */
+        #darkness {
             position: absolute; width: 100%; height: 100%;
-            background: rgba(50, 50, 60, 0.9);
-            backdrop-filter: blur(10px);
-            z-index: 2; transition: opacity 0.5s ease;
+            background: black; z-index: 3; opacity: 1;
         }
 
-        /* The "Open" Button */
+        /* The Custom Cat Button */
         #diary-btn {
-            position: absolute; top: 70%; left: 50%; transform: translateX(-50%);
-            padding: 15px 30px; background: white; border: none; border-radius: 50px;
-            font-size: 1.1rem; cursor: pointer; display: none; z-index: 10;
-            box-shadow: 0 0 20px rgba(255,255,255,0.6); animation: glow 2s infinite;
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%) scale(0.8);
+            cursor: pointer; display: none; z-index: 10;
+            background: none; border: none; transition: transform 0.3s;
         }
+        #diary-btn:hover { transform: translate(-50%, -50%) scale(0.85); }
+        #diary-btn img { width: 400px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
 
-        /* Diary Modal */
+        /* The Diary Page Overlay */
         #diary-page {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: none; justify-content: center;
+            background: rgba(0,0,0,0.85); display: none; justify-content: center;
             align-items: center; z-index: 20;
         }
-
-        .notebook {
-            background: #fdf6e3; width: 80%; max-width: 500px; padding: 40px;
-            border-radius: 5px; position: relative; box-shadow: 10px 10px 0px #d4a373;
-            line-height: 1.6; color: #5d4037; border-left: 5px solid #e0cda9;
+        .letter {
+            background: #fff9f0; padding: 50px; width: 80%; max-width: 500px;
+            border-radius: 2px; box-shadow: 20px 20px 0px #e0cda9;
+            color: #444; font-family: 'Georgia', serif; line-height: 1.8;
         }
-
-        .cat-corner {
-            position: absolute; bottom: -20px; right: -30px; width: 150px;
-        }
-
-        @keyframes glow { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
 </head>
 <body>
 
 <div id="wrapper">
-    <img id="bg-image" src="imageWWY.jpg"> 
+    <img id="bg-image" src="image_c901c5.jpg">
+    <div id="darkness"></div>
     
-    <div id="cloud-overlay"></div>
-    
-    <button id="diary-btn" onclick="openDiary()">Open the Letter ✨</button>
+    <button id="diary-btn" onclick="showLetter()">
+        <img src="https://i.ibb.co/LzpXf6P/cat-holding-letter.png" alt="Click Me">
+    </button>
 
     <div id="diary-page" onclick="this.style.display='none'">
-        <div class="notebook">
-            <h2 style="margin-top:0;">For the Girl who brings the Sun</h2>
-            <p>I know today feels heavy. But just like the sky, your strength isn't about never having clouds—it's about the light you carry that eventually breaks through them.</p>
-            <p>You are resilient, you are powerful, and you are cherished. Take it easy today; the world can wait while you recharge.</p>
-            <p style="text-align: right; font-weight: bold;">— Nits</p>
-            
-            <svg class="cat-corner" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="100" cy="100" r="80" fill="white" />
-                <circle cx="70" cy="80" r="10" fill="#333" />
-                <circle cx="130" cy="80" r="10" fill="#333" />
-                <path d="M 90 110 Q 100 120 110 110" stroke="#333" fill="none" stroke-width="3" />
-                <path d="M 100 95 L 100 105" stroke="pink" stroke-width="5" stroke-linecap="round" />
-            </svg>
+        <div class="letter">
+            <h3 style="margin-top:0; color:#d4a373;">To my favorite Sunshine Girl,</h3>
+            <p>Today is a reminder of how much light you bring into the world, even on the days you feel a bit tired or heavy. Your strength isn't loud; it's the quiet way you keep moving forward.</p>
+            <p>You don't have to be strong every second. Even Hina needed someone to hold her hand. I'm right here.</p>
+            <p style="text-align:right; font-weight:bold;">— Nits</p>
         </div>
     </div>
 </div>
@@ -81,50 +71,68 @@
 <video class="input_video" style="display:none;"></video>
 
 <script>
-    const overlay = document.getElementById('cloud-overlay');
-    const btn = document.getElementById('diary-btn');
+    let sunPower = 0; 
     let isClear = false;
+    let rainDrops = [];
 
-    function openDiary() {
-        document.getElementById('diary-page').style.display = 'flex';
-    }
-
+    // --- Face Tracking (Leaning In Detection) ---
     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
 
     faceMesh.onResults(results => {
         if (results.multiFaceLandmarks && results.multiFaceLandmarks[0] && !isClear) {
             const landmarks = results.multiFaceLandmarks[0];
-            
-            // Calculate distance between eyes (width of face in view)
             const leftEye = landmarks[33];
             const rightEye = landmarks[263];
-            const faceWidth = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
+            const faceScale = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
 
-            // Mapping: if faceWidth is small (far), opacity is high. 
-            // If faceWidth is large (leaning in), opacity drops.
-            let opacity = mapRange(faceWidth, 0.15, 0.35, 0.9, 0);
-            overlay.style.opacity = opacity;
-            overlay.style.backdropFilter = `blur(${opacity * 10}px)`;
+            // Mapping: As she leans in (faceScale goes from ~0.15 to 0.35)
+            sunPower = map(faceScale, 0.18, 0.38, 0, 1);
+            sunPower = constrain(sunPower, 0, 1);
 
-            if (opacity <= 0) {
-                isClear = true; // Locks it clear
-                overlay.style.display = 'none';
-                btn.style.display = 'block';
+            document.getElementById('darkness').style.opacity = 1 - sunPower;
+            document.getElementById('bg-image').style.opacity = sunPower;
+
+            if (sunPower >= 1) {
+                isClear = true;
+                document.getElementById('diary-btn').style.display = 'block';
             }
         }
     });
-
-    function mapRange(value, inMin, inMax, outMin, outMax) {
-        let result = (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
-        return Math.min(Math.max(result, outMax), outMin); // Clamping for opacity
-    }
 
     const camera = new Camera(document.querySelector('.input_video'), {
         onFrame: async () => { await faceMesh.send({image: document.querySelector('.input_video')}); },
         width: 640, height: 480
     });
     camera.start();
-</script>
-</body>
-</html>
+
+    // --- Rain Visuals (p5.js) ---
+    function setup() {
+        let cnv = createCanvas(windowWidth, windowHeight);
+        cnv.parent('wrapper');
+        for (let i = 0; i < 400; i++) {
+            rainDrops.push({
+                x: random(width), y: random(height),
+                z: random(0, 20), len: random(10, 20),
+                speed: random(8, 15)
+            });
+        }
+    }
+
+    function draw() {
+        clear();
+        if (isClear) return; // Stop drawing rain once it's sunny
+
+        stroke(200, 200, 255, (1 - sunPower) * 150);
+        for (let d of rainDrops) {
+            line(d.x, d.y, d.x, d.y + d.len);
+            d.y += d.speed;
+            if (d.y > height) d.y = -20;
+        }
+    }
+
+    function showLetter() {
+        document.getElementById('diary-page').style.display = 'flex';
+    }
+
+    function windowResized() { resize
