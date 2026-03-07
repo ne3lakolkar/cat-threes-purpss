@@ -2,127 +2,129 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Sunshine Girl Protocol | For Hina</title>
+    <title>Sunshine Girl Protocol</title>
     <style>
-        body { margin: 0; background: #111; overflow: hidden; font-family: 'Aptos', sans-serif; cursor: none; }
-        #canvas-wrapper { position: relative; width: 100vw; height: 100vh; }
-        canvas { position: absolute; top: 0; left: 0; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+        #wrapper { position: relative; width: 100vw; height: 100vh; }
         
-        #ui {
-            position: absolute; bottom: 40px; width: 100%; text-align: center;
-            color: #fff; z-index: 10; letter-spacing: 5px; font-weight: 200;
-            text-transform: uppercase; pointer-events: none; opacity: 0.6;
+        /* The Movie Background */
+        #bg-image {
+            position: absolute; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
         }
-        #msg {
-            position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
-            color: #fff; font-size: 1.5rem; text-align: center; font-weight: 700;
-            transition: opacity 1.5s, transform 1s; opacity: 0; z-index: 5;
-            text-shadow: 0 0 15px #ffca28; letter-spacing: 2px;
+
+        /* The Grey Cloud Overlay */
+        #cloud-overlay {
+            position: absolute; width: 100%; height: 100%;
+            background: rgba(50, 50, 60, 0.9);
+            backdrop-filter: blur(10px);
+            z-index: 2; transition: opacity 0.5s ease;
         }
+
+        /* The "Open" Button */
+        #diary-btn {
+            position: absolute; top: 70%; left: 50%; transform: translateX(-50%);
+            padding: 15px 30px; background: white; border: none; border-radius: 50px;
+            font-size: 1.1rem; cursor: pointer; display: none; z-index: 10;
+            box-shadow: 0 0 20px rgba(255,255,255,0.6); animation: glow 2s infinite;
+        }
+
+        /* Diary Modal */
+        #diary-page {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: none; justify-content: center;
+            align-items: center; z-index: 20;
+        }
+
+        .notebook {
+            background: #fdf6e3; width: 80%; max-width: 500px; padding: 40px;
+            border-radius: 5px; position: relative; box-shadow: 10px 10px 0px #d4a373;
+            line-height: 1.6; color: #5d4037; border-left: 5px solid #e0cda9;
+        }
+
+        .cat-corner {
+            position: absolute; bottom: -20px; right: -30px; width: 150px;
+        }
+
+        @keyframes glow { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
 </head>
 <body>
 
-    <div id="canvas-wrapper">
-        <div id="ui">A focus is all it takes to bring the clear sky.</div>
-        <div id="msg">Happy Women's Day<br>to the girl who brings the sun.</div>
-        <video class="input_video" style="display:none;"></video>
+<div id="wrapper">
+    <img id="bg-image" src="imageWWY.jpg"> 
+    
+    <div id="cloud-overlay"></div>
+    
+    <button id="diary-btn" onclick="openDiary()">Open the Letter ✨</button>
+
+    <div id="diary-page" onclick="this.style.display='none'">
+        <div class="notebook">
+            <h2 style="margin-top:0;">For the Girl who brings the Sun</h2>
+            <p>I know today feels heavy. But just like the sky, your strength isn't about never having clouds—it's about the light you carry that eventually breaks through them.</p>
+            <p>You are resilient, you are powerful, and you are cherished. Take it easy today; the world can wait while you recharge.</p>
+            <p style="text-align: right; font-weight: bold;">— Nits</p>
+            
+            <svg class="cat-corner" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="100" cy="100" r="80" fill="white" />
+                <circle cx="70" cy="80" r="10" fill="#333" />
+                <circle cx="130" cy="80" r="10" fill="#333" />
+                <path d="M 90 110 Q 100 120 110 110" stroke="#333" fill="none" stroke-width="3" />
+                <path d="M 100 95 L 100 105" stroke="pink" stroke-width="5" stroke-linecap="round" />
+            </svg>
+        </div>
     </div>
+</div>
+
+<video class="input_video" style="display:none;"></video>
 
 <script>
-    let sunPower = 0; // 0 = Heavy rain, 1 = Clear sun
-    let smoothSun = 0;
-    let focusValue = 0;
-    let img;
-    let rain = [];
+    const overlay = document.getElementById('cloud-overlay');
+    const btn = document.getElementById('diary-btn');
+    let isClear = false;
 
-    // --- Face Tracking Logic ---
-    const videoElement = document.getElementsByClassName('input_video')[0];
+    function openDiary() {
+        document.getElementById('diary-page').style.display = 'flex';
+    }
+
     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-    
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
+
     faceMesh.onResults(results => {
-        if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks[0] && !isClear) {
             const landmarks = results.multiFaceLandmarks[0];
             
-            // 1. Zoom Tracking (Distance)
-            const dFace = Math.hypot(landmarks[1].x - landmarks[152].x, landmarks[1].y - landmarks[152].y);
-            
-            // 2. Center Gaze Tracking
-            const nose = landmarks[1];
-            const dx = Math.abs(nose.x - 0.5);
-            const dy = Math.abs(nose.y - 0.5);
-            
-            // Combined Focus Value
-            focusValue = lerp(focusValue, dFace * (1 - (dx + dy) * 1.5), 0.1);
-            
-            // Trigger threshold
-            sunPower = (focusValue > 0.4) ? 1 : 0;
+            // Calculate distance between eyes (width of face in view)
+            const leftEye = landmarks[33];
+            const rightEye = landmarks[263];
+            const faceWidth = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
+
+            // Mapping: if faceWidth is small (far), opacity is high. 
+            // If faceWidth is large (leaning in), opacity drops.
+            let opacity = mapRange(faceWidth, 0.15, 0.35, 0.9, 0);
+            overlay.style.opacity = opacity;
+            overlay.style.backdropFilter = `blur(${opacity * 10}px)`;
+
+            if (opacity <= 0) {
+                isClear = true; // Locks it clear
+                overlay.style.display = 'none';
+                btn.style.display = 'block';
+            }
         }
     });
 
-    const camera = new Camera(videoElement, {
-        onFrame: async () => { await faceMesh.send({image: videoElement}); },
+    function mapRange(value, inMin, inMax, outMin, outMax) {
+        let result = (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+        return Math.min(Math.max(result, outMax), outMin); // Clamping for opacity
+    }
+
+    const camera = new Camera(document.querySelector('.input_video'), {
+        onFrame: async () => { await faceMesh.send({image: document.querySelector('.input_video')}); },
         width: 640, height: 480
     });
     camera.start();
-
-    // --- Visuals with p5.js ---
-    function preload() {
-        // !!! YOU NEED TO HOST image_0.png AND REFERENCE IT HERE !!!
-        img = loadImage('imageWWY.jpg'); 
-    }
-
-    function setup() {
-        createCanvas(windowWidth, windowHeight);
-        noStroke();
-        
-        // Initialize Rain
-        for (let i = 0; i < 300; i++) {
-            rain[i] = {
-                x: random(width), y: random(height),
-                len: random(10, 20), speed: random(5, 10)
-            };
-        }
-    }
-
-    function draw() {
-        clear();
-        
-        // Smooth transition
-        smoothSun = lerp(smoothSun, sunPower, 0.03);
-        
-        // 1. Draw the Background Image (with dynamic brightness)
-        push();
-        tint(255, 100 + smoothSun * 155); // Dims to 100, brightens to 255
-        image(img, 0, 0, width, height);
-        pop();
-        
-        // 2. Draw the Rain (dissipates as sun power rises)
-        push();
-        stroke(200, 200, 255, (1 - smoothSun) * 100); // Fades away
-        strokeWeight(1);
-        for (let i = 0; i < rain.length; i++) {
-            line(rain[i].x, rain[i].y, rain[i].x, rain[i].y + rain[i].len);
-            rain[i].y += rain[i].speed;
-            if (rain[i].y > height) rain[i].y = -rain[i].len;
-        }
-        pop();
-
-        // 3. Secret Message Logic
-        if (smoothSun > 0.9) {
-            document.getElementById('msg').style.opacity = 1;
-            document.getElementById('msg').style.transform = 'translate(-50%, -50%) scale(1.1)';
-        } else {
-            document.getElementById('msg').style.opacity = 0;
-            document.getElementById('msg').style.transform = 'translate(-50%, -50%) scale(1)';
-        }
-    }
-
-    function windowResized() { resizeCanvas(windowWidth, windowHeight); }
 </script>
 </body>
 </html>
