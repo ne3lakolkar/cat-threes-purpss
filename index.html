@@ -3,343 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nits' Hand-Controlled Purp System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Aptos:wght@400;700&display=swap" rel="stylesheet">
+    <title>Zenith Eye-Control System</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #05000a; font-family: 'Aptos', sans-serif; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background-color: #020005; font-family: sans-serif; }
+        #ui {
+            position: absolute; top: 30px; left: 30px; color: #f0abfc;
+            z-index: 10; text-shadow: 0 0 10px #a855f7; pointer-events: none;
+        }
+        .instr { font-size: 0.8rem; color: white; opacity: 0.7; margin-bottom: 5px; }
         #video-container {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            width: 160px;
-            height: 120px;
-            border: 2px solid #7e22ce; /* Purple border */
-            z-index: 10;
-            opacity: 0.7;
-            transform: scaleX(-1); 
+            position: absolute; bottom: 20px; right: 20px;
+            width: 120px; height: 90px; border-radius: 12px;
+            overflow: hidden; border: 1px solid #a855f7; opacity: 0.4;
+            transform: scaleX(-1);
         }
         video { width: 100%; height: 100%; object-fit: cover; }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #d8b4fe;
-            pointer-events: none;
-            z-index: 10;
-            text-shadow: 0 0 5px #d8b4fe;
-        }
-        h1 { font-size: 1.5rem; margin: 0; }
-        p { font-size: 0.9rem; margin-top: 5px; opacity: 0.8; }
-        .instruction { color: white; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; margin-top: 5px; display: inline-block;}
     </style>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
 </head>
 <body>
 
     <div id="ui">
-        <h1>Nits' ✋🏻-controlled ✨Star💫 System</h1>
-        <div class="instruction">🖐 Move Hand: Rotate/Position</div><br>
-        <div class="instruction">👌 Pinch (Thumb+Index): Change Shape</div><br>
-        <div class="instruction">✊ Fist: Collapse | ✋ Open: Expand</div>
-        <p id="status">Loading Purps AI Model...</p>
+        <h1 style="margin:0; font-weight: 300; letter-spacing: 2px;">ZENITH <span>✨</span></h1>
+        <p style="margin:5px 0 15px 0; font-size: 0.9rem;">Mind-Sync Visualization</p>
+        <div class="instr">◦ Tilt Head: Rotate Universe</div>
+        <div class="instr">◦ Lean In/Out: Control Pulse</div>
+        <div class="instr">◦ Open Mouth: Evolve Shape</div>
     </div>
 
-    <div id="video-container">
-        <video class="input_video"></video>
-    </div>
+    <div id="video-container"><video class="input_video"></video></div>
 
 <script>
+    // --- THREE.JS SETUP ---
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x05000a, 0.002);
-
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 30;
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    const PARTICLE_COUNT = 12000;
+    const PARTICLE_COUNT = 8000;
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(PARTICLE_COUNT * 3);
-    const colors = new Float32Array(PARTICLE_COUNT * 3);
-    const targetPositions = new Float32Array(PARTICLE_COUNT * 3); 
+    const posArray = new Float32Array(PARTICLE_COUNT * 3);
+    const targetArray = new Float32Array(PARTICLE_COUNT * 3);
 
-    for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
-        positions[i] = (Math.random() - 0.5) * 100;
-        colors[i] = 1.0;
-        targetPositions[i] = positions[i];
+    for(let i=0; i<PARTICLE_COUNT*3; i++) {
+        posArray[i] = (Math.random()-0.5) * 50;
+        targetArray[i] = posArray[i];
     }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const getSprite = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32; canvas.height = 32;
-        const context = canvas.getContext('2d');
-        const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
-        gradient.addColorStop(0, 'rgba(216, 180, 254, 1)'); // Purple core
-        gradient.addColorStop(0.2, 'rgba(168, 85, 247, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(88, 28, 135, 0.2)');
-        gradient.addColorStop(1, 'rgba(0,0,0,0)');
-        context.fillStyle = gradient;
-        context.fillRect(0, 0, 32, 32);
-        const texture = new THREE.Texture(canvas);
-        texture.needsUpdate = true;
-        return texture;
-    };
+    geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 
     const material = new THREE.PointsMaterial({
-        size: 0.6,
-        vertexColors: true,
-        map: getSprite(),
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        transparent: true
+        size: 0.15, color: 0xd8b4fe, transparent: true, opacity: 0.8,
+        blending: THREE.AdditiveBlending
     });
 
-    const particles = new THREE.Points(geometry, material);
-    scene.add(particles);
+    const starSystem = new THREE.Points(geometry, material);
+    scene.add(starSystem);
+    camera.position.z = 25;
 
-    const shapes = ['sphere', 'heart', 'saturn', 'flower', 'torus', 'cat'];
-    let currentShapeIndex = 0;
-
-    function getPointOnSphere(i) {
-        const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
-        const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
-        const r = 10;
-        return {
-            x: r * Math.cos(theta) * Math.sin(phi),
-            y: r * Math.sin(theta) * Math.sin(phi),
-            z: r * Math.cos(phi),
-            r: 0.6, g: 0.3, b: 1.0 // Purple-Blue
-        };
-    }
-
-    function getPointOnHeart(i) {
-        const t = (i / PARTICLE_COUNT) * Math.PI * 2;
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-        const z = (Math.random() - 0.5) * 4; 
-        const scale = 0.6;
-        return {
-            x: x * scale, y: y * scale, z: z,
-            r: 0.9, g: 0.1, b: 1.0 // Vivid Magenta-Purple
-        };
-    }
-
-    function getPointOnSaturn(i) {
-        const ratio = 0.7;
-        const isPlanet = i < PARTICLE_COUNT * ratio;
-        if (isPlanet) {
-            const idx = i;
-            const phi = Math.acos(-1 + (2 * idx) / (PARTICLE_COUNT*ratio));
-            const theta = Math.sqrt((PARTICLE_COUNT*ratio) * Math.PI) * phi;
-            const r = 6;
-            return {
-                x: r * Math.cos(theta) * Math.sin(phi),
-                y: r * Math.sin(theta) * Math.sin(phi),
-                z: r * Math.cos(phi),
-                r: 0.7, g: 0.4, b: 1.0 // Soft Purple
-            };
-        } else {
-            const idx = i - PARTICLE_COUNT * ratio;
-            const angle = (idx / (PARTICLE_COUNT * (1-ratio))) * Math.PI * 2 * 5;
-            const radius = 9 + Math.random() * 4;
-            return {
-                x: radius * Math.cos(angle),
-                y: (Math.random()-0.5),
-                z: radius * Math.sin(angle),
-                r: 0.5, g: 0.2, b: 0.8 // Darker Purple
-            };
+    // --- SHAPE LOGIC ---
+    let currentShape = 'sphere';
+    function makeSphere() {
+        for(let i=0; i<PARTICLE_COUNT; i++) {
+            const phi = Math.acos(-1 + (2 * i) / PARTICLE_COUNT);
+            const theta = Math.sqrt(PARTICLE_COUNT * Math.PI) * phi;
+            targetArray[i*3] = 10 * Math.cos(theta) * Math.sin(phi);
+            targetArray[i*3+1] = 10 * Math.sin(theta) * Math.sin(phi);
+            targetArray[i*3+2] = 10 * Math.cos(phi);
         }
     }
+    makeSphere();
 
-    function getPointOnFlower(i) {
-        const theta = (i / PARTICLE_COUNT) * Math.PI * 100;
-        const k = 4;
-        const r = 12 * Math.cos(k * theta);
-        return {
-            x: r * Math.cos(theta), y: r * Math.sin(theta), z: (Math.random() - 0.5) * 5,
-            r: 0.8, g: 0.2, b: 1.0 // Purple
-        };
-    }
+    // --- FACE TRACKING ---
+    const videoElement = document.querySelector('.input_video');
+    let headRotX = 0, headRotY = 0, zoomFactor = 1, mouthOpen = false;
 
-    function getPointOnTorus(i) {
-        const u = Math.random() * Math.PI * 2;
-        const v = Math.random() * Math.PI * 2;
-        const R = 8, r = 3;
-        return {
-            x: (R + r * Math.cos(v)) * Math.cos(u),
-            y: (R + r * Math.cos(v)) * Math.sin(u),
-            z: r * Math.sin(v),
-            r: 0.4, g: 0.0, b: 0.7 // Deep Indigo
-        };
-    }
-
-    const catVertices = [
-    new THREE.Vector3(9, 4, 0),   // 0: Nose
-    new THREE.Vector3(7, 6, 0),   // 1: Forehead
-    new THREE.Vector3(5, 4, 0),   // 2: Neck
-    new THREE.Vector3(6, 1, 0),   // 3: Chest
-    new THREE.Vector3(8, 2, 0),   // 4: Jaw
-    new THREE.Vector3(6, 7, 0),   // 5: Ear Tip (L)
-    new THREE.Vector3(8, 7, 0),   // 6: Ear Tip (R)
-    new THREE.Vector3(2, 5, 0),   // 7: Back (Front)
-    new THREE.Vector3(-4, 5, 0),  // 8: Back (Middle)
-    new THREE.Vector3(-8, 4, 0),  // 9: Back (Rear)
-    new THREE.Vector3(-10, 2, 0), // 10: Tail Base
-    new THREE.Vector3(-12, 6, 0), // 11: Tail Curve
-    new THREE.Vector3(-9, 9, 0),  // 12: Tail Tip
-    new THREE.Vector3(3, 0, 0),   // 13: Front Leg Top
-    new THREE.Vector3(2, -4, 0),  // 14: Front Paw
-    new THREE.Vector3(-6, 0, 0),  // 15: Rear Leg Top
-    new THREE.Vector3(-8, -3, 0), // 16: Rear Paw
-    new THREE.Vector3(-2, 1, 0)   // 17: Belly
-];
-
-const catEdges = [
-    [0, 1], [1, 2], [2, 3], [3, 4], [4, 0], // Head
-    [1, 5], [2, 5], [1, 6], [0, 6],         // Ears
-    [2, 7], [7, 8], [8, 9], [9, 10],        // Back/Top line
-    [3, 17], [17, 9],                       // Belly/Bottom line
-    [10, 11], [11, 12],                     // Tail
-    [3, 13], [13, 14],                      // Front Leg
-    [9, 15], [15, 16]                       // Rear Leg
-];
-
-function getPointOnCat(i) {
-    // Randomly pick an edge to place the particle on
-    const edgeIndex = Math.floor(Math.random() * catEdges.length);
-    const [startIndex, endIndex] = catEdges[edgeIndex];
-    const start = catVertices[startIndex];
-    const end = catVertices[endIndex];
-
-    // Linear interpolation between the two vertices of the edge
-    const t = Math.random();
-    const x = start.x + (end.x - start.x) * t;
-    const y = start.y + (end.y - start.y) * t;
-    const z = start.z + (end.z - start.z) * t;
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5});
     
-    // Add small random jitter to give the wireframe some "fluff" and volume
-    const jitter = (Math.random() - 0.5) * 0.4;
-    const depth = (Math.random() - 0.5) * 2.5;
+    faceMesh.onResults((results) => {
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
+            const landmarks = results.multiFaceLandmarks[0];
+            
+            // 1. Rotation Tracking (Nose bridge to chin)
+            headRotY = (landmarks[1].x - 0.5) * 2; // Left/Right
+            headRotX = (landmarks[1].y - 0.5) * 2; // Up/Down
 
-    // Use light orange/white colors for the particles
-    const isOrange = Math.random() > 0.4;
+            // 2. Zoom Tracking (Distance between eyes)
+            const eyeDist = Math.hypot(landmarks[33].x - landmarks[263].x, landmarks[33].y - landmarks[263].y);
+            zoomFactor = THREE.MathUtils.lerp(zoomFactor, eyeDist * 8, 0.1); 
 
-    return {
-        x: x + jitter,
-        y: y + jitter,
-        z: z + depth,
-        r: isOrange ? 1.0 : 0.95,
-        g: isOrange ? 0.8 : 0.95,
-        b: isOrange ? 0.6 : 1.0
-    };
-}
-
-    function setTargetShape(shapeName) {
-    const colorAttr = particles.geometry.attributes.color;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-        let p;
-        if(shapeName === 'sphere') p = getPointOnSphere(i);
-        else if(shapeName === 'heart') p = getPointOnHeart(i);
-        else if(shapeName === 'saturn') p = getPointOnSaturn(i);
-        else if(shapeName === 'flower') p = getPointOnFlower(i);
-        else if(shapeName === 'torus') p = getPointOnTorus(i);
-        else if(shapeName === 'cat') p = getPointOnCat(i);
-
-        targetPositions[i * 3] = p.x;
-        targetPositions[i * 3 + 1] = p.y;
-        targetPositions[i * 3 + 2] = p.z;
-        colorAttr.setXYZ(i, p.r, p.g, p.b);
-    }
-    colorAttr.needsUpdate = true;
-}
-
-    setTargetShape(shapes[0]);
-
-    const videoElement = document.getElementsByClassName('input_video')[0];
-    const statusText = document.getElementById('status');
-    let handX = 0, handY = 0, isPinching = false, isFist = false, lastPinchTime = 0;
-    
-    function onResults(results) {
-        statusText.innerText = "Purps Engine Active";
-        statusText.style.color = "#d8b4fe";
-
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            const landmarks = results.multiHandLandmarks[0];
-            handX = (0.5 - landmarks[8].x) * 2; 
-            handY = (0.5 - landmarks[8].y) * 2;
-
-            const dist = Math.hypot(landmarks[8].x-landmarks[4].x, landmarks[8].y-landmarks[4].y, landmarks[8].z-landmarks[4].z);
-            if (dist < 0.05) {
-                if (!isPinching && Date.now() - lastPinchTime > 500) {
-                    currentShapeIndex = (currentShapeIndex + 1) % shapes.length;
-                    setTargetShape(shapes[currentShapeIndex]);
-                    lastPinchTime = Date.now();
-                }
-                isPinching = true;
-            } else { isPinching = false; }
-
-            const dFist = Math.hypot(landmarks[8].x - landmarks[0].x, landmarks[8].y - landmarks[0].y);
-            isFist = (dFist < 0.3);
+            // 3. Mouth Interaction (Trigger Shape Change)
+            const mouthDist = Math.hypot(landmarks[13].x - landmarks[14].x, landmarks[13].y - landmarks[14].y);
+            if (mouthDist > 0.05 && !mouthOpen) {
+                material.color.setHex(Math.random() * 0xffffff);
+                mouthOpen = true;
+            } else if (mouthDist < 0.03) { mouthOpen = false; }
         }
-    }
-
-    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-    hands.onResults(onResults);
-
-    const cameraUtils = new Camera(videoElement, {
-        onFrame: async () => { await hands.send({image: videoElement}); },
-        width: 320, height: 240
     });
-    cameraUtils.start();
 
-    const clock = new THREE.Clock();
+    const cam = new Camera(videoElement, {
+        onFrame: async () => { await faceMesh.send({image: videoElement}); },
+        width: 640, height: 480
+    });
+    cam.start();
+
+    // --- ANIMATION LOOP ---
     function animate() {
         requestAnimationFrame(animate);
-        const time = clock.getElapsedTime();
-        const posAttr = particles.geometry.attributes.position;
-        const curPos = posAttr.array;
+        
+        // Smooth rotation based on head position
+        starSystem.rotation.y += (headRotY - starSystem.rotation.y) * 0.05;
+        starSystem.rotation.x += (headRotX - starSystem.rotation.x) * 0.05;
 
-        particles.rotation.x += ((handY * 1) - particles.rotation.x) * 0.1;
-        particles.rotation.y += ((handX * 1) - particles.rotation.y) * 0.1;
-
-        let exp = isFist ? 0.1 : (isPinching ? 1.2 : 1.5);
-
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const idx = i * 3;
-            const tx = targetPositions[idx] * exp;
-            const ty = targetPositions[idx+1] * exp;
-            const tz = targetPositions[idx+2] * exp;
-            const noise = Math.sin(time + i) * 0.05;
-            const speed = isFist ? 0.2 : 0.05;
-
-            curPos[idx] += (tx - curPos[idx]) * speed + noise;
-            curPos[idx+1] += (ty - curPos[idx+1]) * speed + noise;
-            curPos[idx+2] += (tz - curPos[idx+2]) * speed + noise;
+        const positions = geometry.attributes.position.array;
+        for(let i=0; i<PARTICLE_COUNT; i++) {
+            const i3 = i * 3;
+            // Particles "Bloom" out as you lean in
+            const dynamicScale = zoomFactor;
+            positions[i3] += (targetArray[i3] * dynamicScale - positions[i3]) * 0.05;
+            positions[i3+1] += (targetArray[i3+1] * dynamicScale - positions[i3+1]) * 0.05;
+            positions[i3+2] += (targetArray[i3+2] * dynamicScale - positions[i3+2]) * 0.05;
         }
-        posAttr.needsUpdate = true;
+        
+        geometry.attributes.position.needsUpdate = true;
         renderer.render(scene, camera);
     }
+    animate();
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    animate();
 </script>
 </body>
 </html>
