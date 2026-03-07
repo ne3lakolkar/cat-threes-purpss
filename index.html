@@ -7,43 +7,50 @@
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Aptos', sans-serif; }
         #wrapper { position: relative; width: 100vw; height: 100vh; }
         
-        /* The Base Movie Image */
         #bg-image {
             position: absolute; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1; opacity: 0; /* Hidden at start */
+            object-fit: cover; z-index: 1; opacity: 0;
+            transition: opacity 3s ease-in-out; /* Smooth fade-in reveal */
         }
 
-        /* The Rain Canvas */
-        canvas { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
-
-        /* Darkness Overlay */
         #darkness {
             position: absolute; width: 100%; height: 100%;
             background: black; z-index: 3; opacity: 1;
+            transition: opacity 3s ease-in-out;
         }
 
-        /* The Custom Cat Button */
+        #counter-ui {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; z-index: 10; text-align: center; pointer-events: none;
+        }
+        #nod-text { font-size: 1.5rem; letter-spacing: 3px; opacity: 0.8; }
+        #count-num { font-size: 4rem; font-weight: bold; color: #d8b4fe; display: block; }
+
+        canvas { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; }
+
         #diary-btn {
             position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%) scale(0.8);
-            cursor: pointer; display: none; z-index: 10;
-            background: none; border: none; transition: transform 0.3s;
+            transform: translate(-50%, -50%) scale(0.6);
+            cursor: pointer; display: none; z-index: 15;
+            background: none; border: none;
         }
-        #diary-btn:hover { transform: translate(-50%, -50%) scale(0.85); }
-        #diary-btn img { width: 400px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
+        #diary-btn img { width: 500px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
 
-        /* The Diary Page Overlay */
-        #diary-page {
+        #diary-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: none; justify-content: center;
-            align-items: center; z-index: 20;
+            background: rgba(0,0,0,0.95); display: none; z-index: 20;
+            justify-content: center; align-items: center;
         }
-        .letter {
-            background: #fff9f0; padding: 50px; width: 80%; max-width: 500px;
-            border-radius: 2px; box-shadow: 20px 20px 0px #e0cda9;
-            color: #444; font-family: 'Georgia', serif; line-height: 1.8;
+
+        .letter-content {
+            position: relative; z-index: 22;
+            background: rgba(255, 250, 240, 0.9);
+            padding: 60px; width: 85%; max-width: 600px;
+            border-radius: 4px; color: #2e1065; font-family: 'Georgia', serif; line-height: 2;
+            backdrop-filter: blur(5px);
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
@@ -54,16 +61,22 @@
     <img id="bg-image" src="imageWWY.jpg">
     <div id="darkness"></div>
     
-    <button id="diary-btn" onclick="showLetter()">
-        <img src="842.jpg" alt="Click Me">
+    <div id="counter-ui">
+        <span id="nod-text">Nod 'Yes' to bring the sun...</span>
+        <span id="count-num">0 / 7</span>
+    </div>
+    
+    <button id="diary-btn" onclick="showGalaxyLetter()">
+        <img src="842.jpg" alt="Open Letter">
     </button>
 
-    <div id="diary-page" onclick="this.style.display='none'">
-        <div class="letter">
-            <h3 style="margin-top:0; color:#d4a373;">To my favorite Sunshine Girl,</h3>
+    <div id="diary-overlay">
+        <div id="galaxy-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+        <div class="letter-content">
+            <h2 style="margin-top:0; color:#6b21a8;">To my favorite Sunshine Girl,</h2>
             <p>Today is a reminder of how much light you bring into the world, even on the days you feel a bit tired or heavy. Your strength isn't loud; it's the quiet way you keep moving forward.</p>
-            <p>You don't have to be strong every second. Even Hina needed someone to hold her hand. I'm right here.</p>
-            <p style="text-align:right; font-weight:bold;">— Nits</p>
+            <p>You don't have to be strong every second. Even Hina needed someone to hold her hand. I'm right here, always.</p>
+            <p style="text-align:right; font-weight:bold; font-size: 1.2rem; color:#6b21a8;">— Nits</p>
         </div>
     </div>
 </div>
@@ -71,34 +84,83 @@
 <video class="input_video" style="display:none;"></video>
 
 <script>
-    let sunPower = 0; 
     let isClear = false;
-    let rainDrops = [];
+    let headX = 0, headY = 0;
+    let nodCount = 0;
+    let nodDetected = false;
+    let lastY = 0;
 
-    // --- Face Tracking (Leaning In Detection) ---
+    // --- THREE.JS GALAXY SETUP ---
+    const galaxyScene = new THREE.Scene();
+    const galaxyCam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const galaxyRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    galaxyRenderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('galaxy-container').appendChild(galaxyRenderer.domElement);
+
+    const particlesCount = 15000;
+    const posArr = new Float32Array(particlesCount * 3);
+    const colArr = new Float32Array(particlesCount * 3);
+
+    for(let i=0; i < particlesCount; i++) {
+        const angle = i * 0.1;
+        const radius = i * 0.005 + Math.random() * 2;
+        posArr[i*3] = Math.cos(angle) * radius;
+        posArr[i*3+1] = (Math.random() - 0.5) * 2;
+        posArr[i*3+2] = Math.sin(angle) * radius;
+        colArr[i*3] = 0.5 + Math.random() * 0.5;
+        colArr[i*3+1] = 0.2;
+        colArr[i*3+2] = 0.8 + Math.random() * 0.2;
+    }
+
+    const galaxyGeom = new THREE.BufferGeometry();
+    galaxyGeom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    galaxyGeom.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+    const galaxyMat = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+    const galaxyPoints = new THREE.Points(galaxyGeom, galaxyMat);
+    galaxyScene.add(galaxyPoints);
+    galaxyCam.position.z = 15;
+
+    // --- FACE TRACKING & NOD DETECTION ---
     const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
     faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true });
 
     faceMesh.onResults(results => {
-        if (results.multiFaceLandmarks && results.multiFaceLandmarks[0] && !isClear) {
+        if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
             const landmarks = results.multiFaceLandmarks[0];
-            const leftEye = landmarks[33];
-            const rightEye = landmarks[263];
-            const faceScale = Math.hypot(leftEye.x - rightEye.x, leftEye.y - rightEye.y);
+            headX = (landmarks[1].x - 0.5) * 2;
+            headY = (landmarks[1].y - 0.5) * 2;
 
-            // Mapping: As she leans in (faceScale goes from ~0.15 to 0.35)
-            sunPower = map(faceScale, 0.18, 0.38, 0, 1);
-            sunPower = constrain(sunPower, 0, 1);
+            if (!isClear) {
+                const currentY = landmarks[1].y; // Nose tip
+                const movement = currentY - lastY;
 
-            document.getElementById('darkness').style.opacity = 1 - sunPower;
-            document.getElementById('bg-image').style.opacity = sunPower;
-
-            if (sunPower >= 1) {
-                isClear = true;
-                document.getElementById('diary-btn').style.display = 'block';
+                // Detect Downward Motion for Nod
+                if (movement > 0.015 && !nodDetected) {
+                    nodDetected = true;
+                    nodCount++;
+                    document.getElementById('count-num').innerText = `${nodCount} / 7`;
+                    
+                    if (nodCount >= 7) {
+                        triggerReveal();
+                    }
+                } else if (movement < -0.01) {
+                    nodDetected = false; // Reset for next nod
+                }
+                lastY = currentY;
             }
         }
     });
+
+    function triggerReveal() {
+        isClear = true;
+        document.getElementById('counter-ui').style.opacity = 0;
+        document.getElementById('darkness').style.opacity = 0;
+        document.getElementById('bg-image').style.opacity = 1;
+        
+        setTimeout(() => {
+            document.getElementById('diary-btn').style.display = 'block';
+        }, 3000); // Wait for fade-in to finish
+    }
 
     const camera = new Camera(document.querySelector('.input_video'), {
         onFrame: async () => { await faceMesh.send({image: document.querySelector('.input_video')}); },
@@ -106,36 +168,36 @@
     });
     camera.start();
 
-    // --- Rain Visuals (p5.js) ---
+    // --- ANIMATION LOOP ---
+    function animate() {
+        requestAnimationFrame(animate);
+        galaxyPoints.rotation.y += 0.002;
+        galaxyPoints.rotation.x += (headY * 0.5 - galaxyPoints.rotation.x) * 0.05;
+        galaxyPoints.rotation.z += (headX * 0.5 - galaxyPoints.rotation.z) * 0.05;
+        galaxyRenderer.render(galaxyScene, galaxyCam);
+    }
+    animate();
+
+    function showGalaxyLetter() {
+        document.getElementById('diary-overlay').style.display = 'flex';
+    }
+
+    // --- P5.JS RAIN ---
+    let drops = [];
     function setup() {
         let cnv = createCanvas(windowWidth, windowHeight);
         cnv.parent('wrapper');
-        for (let i = 0; i < 400; i++) {
-            rainDrops.push({
-                x: random(width), y: random(height),
-                z: random(0, 20), len: random(10, 20),
-                speed: random(8, 15)
-            });
-        }
+        for(let i=0; i<300; i++) drops.push({x: random(width), y: random(height), s: random(10, 20)});
     }
-
     function draw() {
         clear();
-        if (isClear) return; // Stop drawing rain once it's sunny
-
-        stroke(200, 200, 255, (1 - sunPower) * 150);
-        for (let d of rainDrops) {
-            line(d.x, d.y, d.x, d.y + d.len);
-            d.y += d.speed;
-            if (d.y > height) d.y = -20;
+        if (isClear) return;
+        stroke(150, 150, 200, 150);
+        for(let d of drops) {
+            line(d.x, d.y, d.x, d.y + 10);
+            d.y += d.s; if(d.y > height) d.y = -10;
         }
     }
-
-    function showLetter() {
-        document.getElementById('diary-page').style.display = 'flex';
-    }
-
-    function windowResized() { resizeCanvas(windowWidth, windowHeight); }
 </script>
 </body>
 </html>
