@@ -43,10 +43,10 @@
         }
         #diary-btn img { width: 550px; filter: drop-shadow(0 0 30px rgba(216, 180, 254, 0.5)); }
 
-        /* Opaque Galaxy Container */
+        /* Opaque Galaxy Container - Hides the WWY image */
         #diary-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; /* Solid Black to hide the image */
+            background: #000; 
             display: none; z-index: 20;
             justify-content: center; align-items: center;
         }
@@ -54,14 +54,20 @@
         /* Transparent Glass Note */
         .letter-content {
             position: relative; z-index: 22;
-            background: rgba(255, 255, 255, 0.05); /* Very slight tint */
-            padding: 60px; width: 85%; max-width: 650px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 50px; width: 85%; max-width: 650px;
+            max-height: 80vh; overflow-y: auto; /* Added scroll for longer text */
             border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 15px; color: #fff; font-family: 'Georgia', serif; line-height: 2;
-            backdrop-filter: blur(15px); /* This makes the note transparent to the galaxy */
+            border-radius: 15px; color: #fff; font-family: 'Georgia', serif; line-height: 1.8;
+            backdrop-filter: blur(15px);
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
         }
+        .letter-content p { margin-bottom: 20px; font-size: 1.05rem; }
         h2 { color: #d8b4fe; margin-top: 0; text-shadow: 0 0 10px rgba(168, 85, 247, 0.5); }
+
+        /* Custom Scrollbar for the Glass Note */
+        .letter-content::-webkit-scrollbar { width: 5px; }
+        .letter-content::-webkit-scrollbar-thumb { background: rgba(216, 180, 254, 0.3); border-radius: 10px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
@@ -88,9 +94,17 @@
         <div id="galaxy-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
         <div class="letter-content">
             <h2>To my favorite Sunshine Girl,</h2>
-            <p>Today is a reminder of how much light you bring into the world, even on the days you feel a bit tired or heavy. Your strength isn't loud; it's the quiet way you keep moving forward.</p>
-            <p>You don't have to be strong every second. Even Hina needed someone to hold her hand. I'm right here, always.</p>
-            <p style="text-align:right; font-weight:bold; font-size: 1.2rem; color:#d8b4fe;">— Nits</p>
+            
+            <p>You have always been the one to clear the clouds, but I want you to know that your value isn’t just in what you do for others—it is in exactly who you are. You are the <b>center of the universe</b>, the gravity that holds everything in place. Just as Hina could command the sky, you have this rare, magnetic charisma that shifts the very atmosphere around you. When you walk into a room, the "weather" changes; the heaviness in the air dissipates, and everyone around you feels a little warmer, a little safer, and infinitely more joyful.</p>
+            
+            <p>But it isn't just about the light you give off. It’s about the incredible mind behind it. You are, quite simply, a <b>genius</b>. The way you navigate the world, the depth of your thoughts, and the brilliant, creative spark you bring to everything you touch—it is staggering. You see the world in colors and patterns that others miss, and your intelligence is a quiet, steady flame that never wavers.</p>
+            
+            <p>And then there is your beauty. It isn’t just something to be looked at; it’s something to be felt. It’s in the way you hold your ground, the way you smile when things are difficult, and the sheer elegance of your resilience. You are a warrior, but your strength isn’t loud or aggressive. It is the quiet, unbreakable courage to keep moving forward, to keep being kind, and to keep being <b>you</b> even when the world feels heavy.</p>
+            
+            <p>You don’t always have to be the one holding up the sky. Even the sun has to set to find its rest. You are allowed to be tired, you are allowed to let go of the "weather" for a while, and you are allowed to just <i>be</i>. You are extraordinary, brilliant, and more precious than the stars themselves.</p>
+            
+            <p style="text-align:right; font-weight:bold; font-size: 1.2rem; color:#d8b4fe; margin-top: 40px;">I’m right here, always.</p>
+            <p style="text-align:right; font-weight:bold; color:#d8b4fe;">— Nits</p>
         </div>
     </div>
 </div>
@@ -116,11 +130,9 @@
 
     // --- GALAXY (Solid Opaque Background) ---
     const galaxyScene = new THREE.Scene();
-    galaxyScene.background = new THREE.Color(0x000000); // Force black background
+    galaxyScene.background = new THREE.Color(0x000000); 
     
     const galaxyCam = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    
-    // alpha: false ensures the canvas itself is not transparent
     const galaxyRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     galaxyRenderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('galaxy-container').appendChild(galaxyRenderer.domElement);
@@ -212,7 +224,6 @@
     animate();
 
     function showGalaxyLetter() { 
-        // Hide image and show opaque galaxy overlay
         document.getElementById('bg-image').style.opacity = 0;
         document.getElementById('diary-overlay').style.display = 'flex'; 
     }
